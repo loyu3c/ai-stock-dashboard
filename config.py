@@ -19,6 +19,10 @@ class Config:
     LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
     LINE_USER_ID = os.getenv("LINE_USER_ID")
 
+    # Supabase
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
     @classmethod
     def check_required(cls):
         """Check if essential variables are set"""

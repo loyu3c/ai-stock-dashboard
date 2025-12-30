@@ -100,36 +100,109 @@ class SheetManager:
         Returns:
             dict: { 'MA_SHORT_DAYS': 10, ... }
         """
+        full_config = self.fetch_strategy_config_full()
+        # Convert list back to simple dict for backward compatibility
+        simple_config = {item['Parameter']: item['Value'] for item in full_config}
+        return simple_config
+
+    def fetch_strategy_config_full(self) -> list:
+        """
+        Fetches the 'Strategy Config' worksheet and returns a list of detailed objects.
+        Also automatically populates Chinese descriptions if missing.
+        Returns:
+            list: [{ 'Parameter': 'MA_SHORT_DAYS', 'Value': 10, 'Description': '...' }, ...]
+        """
         if not self.sh:
-            return {}
+            return []
+
+        DEFAULT_DESCRIPTIONS = {
+            "MA_SHORT_DAYS": "短期移動平均線天數 (例如 10 日線)",
+            "MA_LONG_DAYS": "長期移動平均線天數 (例如 20 日線)",
+            "RSI_THRESHOLD": "RSI 相關指標的判斷門檻",
+            "KD_THRESHOLD": "KD 隨機指標的判斷門檻",
+            "MACD_FAST": "MACD 快速移動平均線天數 (通常為 12)",
+            "MACD_SLOW": "MACD 慢速移動平均線天數 (通常為 26)",
+            "MACD_SIGNAL": "MACD 訊號線天數 (通常為 9)"
+        }
 
         try:
             ws = self.sh.worksheet("Strategy Config")
             records = ws.get_all_records()
             
-            config = {}
+            # If sheet is empty or headers missing, it might crash get_all_records or return empty
+            # But assuming it's initialized.
+            
+            config_list = []
+            updates_needed = False
+
+            # We want to ensure all keys in DEFAULT_DESCRIPTIONS exist or at least what is in the sheet
+            # Let's trust the sheet as the source of truth for keys, but add descriptions.
+            
+            # If records are empty but we have defaults, maybe we should init the sheet? 
+            # For now, let's just process what is there.
+            
             for r in records:
                 key = r.get('Parameter')
                 val = r.get('Value')
+                desc = r.get('Description', '')
+
                 if key:
-                    # Try to convert to int/float if possible
+                    # Type conversion
                     try:
                         if isinstance(val, str) and '.' in val:
                             val = float(val)
                         else:
                             val = int(val)
                     except ValueError:
-                        pass # Keep as string
-                    config[key] = val
+                        pass 
+
+                    # Populate Description if missing
+                    if not desc and key in DEFAULT_DESCRIPTIONS:
+                        desc = DEFAULT_DESCRIPTIONS[key]
+                        # We should update the sheet back later or just return it for display?
+                        # Ideally update the sheet so it persists. 
+                        # But writing back line-by-line is slow. 
+                        # Let's collect data and update if we found missing descriptions.
+                        updates_needed = True
+
+                    config_list.append({
+                        "Parameter": key,
+                        "Value": val,
+                        "Description": desc
+                    })
             
-            print(f"✅ Fetched {len(config)} strategy parameters.")
-            return config
+            if updates_needed:
+                print("ℹ️ Updating missing descriptions in Google Sheet...")
+                self._update_whole_strategy_sheet(config_list)
+
+            print(f"✅ Fetched {len(config_list)} detailed strategy parameters.")
+            return config_list
+
         except gspread.exceptions.WorksheetNotFound:
-            print("❌ 'Strategy Config' sheet not found. Using defaults.")
-            return {}
+            print("❌ 'Strategy Config' sheet not found.")
+            return []
         except Exception as e:
-            print(f"❌ Failed to fetch config: {e}")
-            return {}
+            print(f"❌ Failed to fetch config full: {e}")
+            return []
+
+    def _update_whole_strategy_sheet(self, config_list: list):
+        """Helper to overwrite the strategy sheet with new list."""
+        try:
+            ws = self.sh.worksheet("Strategy Config")
+            ws.clear()
+            
+            df = pd.DataFrame(config_list)
+            desired_columns = ["Parameter", "Value", "Description"]
+            # Ensure columns exist
+            for col in desired_columns:
+                if col not in df.columns:
+                    df[col] = ""
+            
+            df = df[desired_columns]
+            data = [df.columns.values.tolist()] + df.values.tolist()
+            ws.update(data)
+        except Exception as e:
+            print(f"❌ Failed to update strategy sheet: {e}")
 
     def save_stock_list(self, stock_list: list) -> bool:
         """
@@ -181,35 +254,39 @@ class SheetManager:
             return False
 
         try:
-            ws = self.sh.worksheet("Strategy Config")
-            ws.clear()
+            # We fetch existing detailed config first to preserve descriptions
+            current_detailed = self.fetch_strategy_config_full()
             
-            # Convert dict back to list of dicts structure: Parameter, Value, Description
-            # We need to preserve descriptions if possible. 
-            # Ideally, the frontend sends back the full object including description, 
-            # OR we fetch existing to keep descriptions. 
-            # For simplicity, let's assume the frontend sends full objects OR we just write what we have.
-            # Strategy: The input here is likely a simple key-value dict from the API.
-            # We should probably fetch the existing sheet first to preserve Descriptions.
+            # Map existing configs by Parameter for easy update
+            config_map = {item['Parameter']: item for item in current_detailed}
             
-            current_records = ws.get_all_records()
-            record_map = {r['Parameter']: r.get('Description', '') for r in current_records}
+            # Update values from input config_dict
+            new_list = []
+            full_keys = set(config_map.keys()) | set(config_dict.keys())
             
-            new_data = []
+            # We want to preserve order if possible, or just append new ones. 
+            # Let's iterate over known keys first + any new ones.
+            # Ideally we stick to what is in existing list to keep order.
+            
+            # Create a new list based on current_detailed order
+            processed_keys = set()
+            for item in current_detailed:
+                key = item['Parameter']
+                if key in config_dict:
+                    item['Value'] = config_dict[key]
+                new_list.append(item)
+                processed_keys.add(key)
+                
+            # Add any NEW keys from config_dict that weren't in detailed list
             for key, val in config_dict.items():
-                desc = record_map.get(key, "") # Preserve description or empty
-                new_data.append({"Parameter": key, "Value": val, "Description": desc})
+                if key not in processed_keys:
+                    new_list.append({
+                        "Parameter": key, 
+                        "Value": val, 
+                        "Description": ""
+                    })
             
-            if not new_data:
-                 print("⚠️ Config is empty.")
-                 return True
-                 
-            df = pd.DataFrame(new_data)
-            desired_columns = ["Parameter", "Value", "Description"]
-            df = df[desired_columns]
-            
-            data = [df.columns.values.tolist()] + df.values.tolist()
-            ws.update(data)
+            self._update_whole_strategy_sheet(new_list)
             print(f"✅ Saved strategy config to Google Sheet.")
             return True
         except Exception as e:

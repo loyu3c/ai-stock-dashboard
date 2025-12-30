@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Plus, Trash2, RefreshCw, Info } from 'lucide-react';
+import { Save, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 
 interface StockItem {
@@ -9,8 +9,14 @@ interface StockItem {
     Memo: string;
 }
 
+interface StrategyItem {
+    Parameter: string;
+    Value: number | string;
+    Description: string;
+}
+
 interface StrategyConfig {
-    [key: string]: number | string;
+    [key: string]: number | string; // For saving payload, we keep this structure or transform
 }
 
 const API_BASE = 'http://localhost:8000/api';
@@ -18,7 +24,7 @@ const API_BASE = 'http://localhost:8000/api';
 const ConfigPage = () => {
     const [loading, setLoading] = useState(true);
     const [stockList, setStockList] = useState<StockItem[]>([]);
-    const [strategy, setStrategy] = useState<StrategyConfig>({});
+    const [strategyList, setStrategyList] = useState<StrategyItem[]>([]);
     const [activeSection, setActiveSection] = useState<'stocks' | 'strategy'>('stocks');
     const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
@@ -33,7 +39,18 @@ const ConfigPage = () => {
             if (!res.ok) throw new Error("Failed to connect to local server");
             const data = await res.json();
             setStockList(data.stock_list);
-            setStrategy(data.strategy);
+
+            // Handle both Array (new backend) and Object (old backend) formats
+            let strategyData = data.strategy;
+            if (!Array.isArray(strategyData)) {
+                // Convert old dict format to new list format
+                strategyData = Object.entries(strategyData).map(([key, val]) => ({
+                    Parameter: key,
+                    Value: val,
+                    Description: '' // No description available from old backend
+                }));
+            }
+            setStrategyList(strategyData);
             setMessage(null);
         } catch (err) {
             console.error(err);
@@ -69,10 +86,16 @@ const ConfigPage = () => {
 
     const handleSaveStrategy = async () => {
         try {
+            // Convert list back to Dict for API
+            const configDict: StrategyConfig = {};
+            strategyList.forEach(item => {
+                configDict[item.Parameter] = item.Value;
+            });
+
             const res = await fetch(`${API_BASE}/save_strategy`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ config: strategy })
+                body: JSON.stringify({ config: configDict })
             });
             if (!res.ok) throw new Error("Save failed");
             setMessage({ text: "策略參數已儲存！", type: 'success' });
@@ -103,17 +126,7 @@ const ConfigPage = () => {
         <div className="space-y-6 max-w-5xl mx-auto">
             <h1 className="text-3xl font-extrabold mb-8 text-slate-800 tracking-tight">⚙️ 系統設定</h1>
 
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 flex items-start gap-3">
-                <Info className="text-blue-600 mt-1 shrink-0" size={20} />
-                <div className="text-sm text-blue-800">
-                    <p className="font-semibold mb-1">關於存檔功能：</p>
-                    <ul className="list-disc pl-4 space-y-1 text-blue-700">
-                        <li>此處的修改會直接同步至您的 <strong>Google 試算表</strong>。</li>
-                        <li>為了確保功能正常，請務必在電腦上持續執行後端程式：<code>python server.py</code></li>
-                        <li>按下「儲存」後，若看到綠色成功訊息，即代表雲端試算表已更新。</li>
-                    </ul>
-                </div>
-            </div>
+
 
             {message && (
                 <div className={`p-4 rounded ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
@@ -218,17 +231,24 @@ const ConfigPage = () => {
                     </CardHeader>
                     <CardContent className="p-6 bg-white">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {Object.entries(strategy).map(([key, val]) => (
-                                <div key={key} className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-700">{key}</label>
+                            {strategyList.map((item, index) => (
+                                <div key={item.Parameter} className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-700">{item.Parameter}</label>
                                     <input
-                                        type="number"
-                                        value={val}
-                                        onChange={(e) => setStrategy({ ...strategy, [key]: Number(e.target.value) })}
+                                        type={typeof item.Value === 'number' ? 'number' : 'text'}
+                                        value={item.Value}
+                                        onChange={(e) => {
+                                            const newList = [...strategyList];
+                                            newList[index] = {
+                                                ...newList[index],
+                                                Value: typeof item.Value === 'number' ? Number(e.target.value) : e.target.value
+                                            };
+                                            setStrategyList(newList);
+                                        }}
                                         className="w-full p-2 border rounded focus:ring-2 focus:ring-slate-200 outline-none"
                                     />
                                     <p className="text-xs text-slate-400">
-                                        {key.includes('MA') ? 'Moving Average Days' : key.includes('RSI') ? 'RSI Threshold' : 'Parameter'}
+                                        {item.Description || item.Parameter}
                                     </p>
                                 </div>
                             ))}

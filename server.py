@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sheet_manager import SheetManager
+from fastapi.responses import JSONResponse
+from supabase_manager import SupabaseManager
 import uvicorn
 import logging
 
@@ -26,7 +27,7 @@ async def validation_exception_handler(request, exc):
         content={"detail": exc.errors(), "body": exc.body},
     )
 
-sheet_manager = SheetManager()
+supabase_manager = SupabaseManager()
 
 from typing import Union, Optional
 
@@ -45,11 +46,10 @@ def get_config():
     """Fetches current stock list and strategy config."""
     try:
         # Fetch raw records including disabled ones
-        ws = sheet_manager.sh.worksheet("Stock List")
-        raw_stocks = ws.get_all_records()
+        raw_stocks = supabase_manager.fetch_all_stocks()
         
         # Strategy
-        strategy = sheet_manager.fetch_strategy_config()
+        strategy = supabase_manager.fetch_strategy_config_full()
         
         return {
             "stock_list": raw_stocks,
@@ -61,21 +61,15 @@ def get_config():
 @app.post("/api/save_stock_list")
 def save_stock_list(items: list[StockItem]):
     """Saves the full stock list."""
-    # Convert Pydantic models to clean dicts for sheet format
+    # Convert Pydantic models to clean dicts
     data = []
     for item in items:
         row = item.dict()
-        # Normalize to Strings for Sheet
-        row['Stock'] = str(row['Stock'])
-        # Normalize Enabled to "TRUE" / "FALSE"
-        is_enabled = str(row['Enabled']).upper() == 'TRUE' or row['Enabled'] is True
-        row['Enabled'] = "TRUE" if is_enabled else "FALSE"
-        # Handle potential None
-        row['Name'] = str(row['Name']) if row['Name'] is not None else ""
-        row['Memo'] = str(row['Memo']) if row['Memo'] is not None else ""
+        # SupabaseManager expects keys: Stock, Name, Enabled, Memo
+        # It handles conversion of Enabled
         data.append(row)
 
-    success = sheet_manager.save_stock_list(data)
+    success = supabase_manager.save_stock_list(data)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to save stock list")
     return {"status": "success"}
@@ -83,7 +77,7 @@ def save_stock_list(items: list[StockItem]):
 @app.post("/api/save_strategy")
 def save_strategy(data: StrategyConfig):
     """Saves strategy configuration."""
-    success = sheet_manager.save_strategy_config(data.config)
+    success = supabase_manager.save_strategy_config(data.config)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to save strategy")
     return {"status": "success"}

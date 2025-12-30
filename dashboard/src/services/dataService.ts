@@ -1,32 +1,56 @@
-import Papa from 'papaparse';
+import { supabase } from '../supabaseClient';
 import type { StockData } from '../types/stock';
 
-// Placeholder URL - User needs to replace this
-const SHEET_CSV_URL = import.meta.env.VITE_GOOGLE_SHEET_CSV_URL || "";
-
 export const fetchStockData = async (): Promise<StockData[]> => {
-    if (!SHEET_CSV_URL) {
-        console.warn("Google Sheet CSV URL is not configured.");
+    try {
+        // Fetch latest analysis results
+        // standard Postgres hack for "latest item per group": 
+        // distinct on (stock_code) ... order by stock_code, date desc
+
+        const { data, error } = await supabase
+            .from('analysis_results')
+            .select('*')
+            .order('stock_code', { ascending: true })
+            .order('date', { ascending: false });
+
+        if (error) {
+            console.error("Supabase fetch error:", error);
+            throw error;
+        }
+
+        if (!data) return [];
+
+        // Manual "Distinct On" filter if we don't assume the SQL distinct worked perfectly via API options
+        // (Supabase JS client sometimes needs specific syntax for distinct, doing it in JS is safer for small datasets)
+        const latestMap = new Map();
+        data.forEach(item => {
+            if (!latestMap.has(item.stock_code)) {
+                latestMap.set(item.stock_code, item);
+            }
+        });
+
+        const latestData = Array.from(latestMap.values());
+
+        // Map to StockData interface
+        return latestData.map(item => {
+            // indicators is stored as JSONB, which comes back as an object
+            const indicators = item.indicators || {};
+
+            return {
+                Stock: item.stock_code,
+                Name: indicators.Name || '', // We stored Name in indicators
+                Date: item.date,
+                Signal: item.signal,
+                Close: item.price,
+                Memo: indicators.Memo || indicators.Signal_Memo || '', // Mapped to Memo
+                K: indicators.K || 0,
+                D: indicators.D || 0,
+                RSI: indicators.RSI || 0
+            } as StockData;
+        });
+
+    } catch (err) {
+        console.error("Fetching stock data failed:", err);
         return [];
     }
-
-    return new Promise((resolve, reject) => {
-        Papa.parse(SHEET_CSV_URL, {
-            download: true,
-            header: true,
-            dynamicTyping: true,
-            complete: (results) => {
-                if (results.data) {
-                    // Filter out empty rows or malformed data
-                    const validData = (results.data as StockData[]).filter(row => row.Stock && row.Signal);
-                    resolve(validData);
-                } else {
-                    resolve([]);
-                }
-            },
-            error: (error) => {
-                reject(error);
-            },
-        });
-    });
 };
