@@ -1,0 +1,7 @@
+shioaji
+pandas
+pandas_ta
+gspread
+google-auth
+line-bot-sdk
+python-dotenv

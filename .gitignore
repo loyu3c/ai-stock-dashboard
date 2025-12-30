@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# Secrets & Credentials
+service_account.json
+*.pfx
+*.pem
+
+# IDE
+.vscode/
+.idea/
+
+# Local data
+data/
+*.csv
+*.parquet
