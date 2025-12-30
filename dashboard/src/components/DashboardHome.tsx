@@ -62,3 +62,5 @@ const DashboardHome = () => {
 };
 
 export default DashboardHome;
+// Updated to Light Theme
+
