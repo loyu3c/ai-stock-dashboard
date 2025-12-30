@@ -3,7 +3,11 @@ import pandas_ta as ta
 
 class TechIndicators:
     @staticmethod
-    def calculate(df: pd.DataFrame) -> pd.DataFrame:
+    def calculate(df: pd.DataFrame, 
+                  ma_short: int = 10, ma_long: int = 20, 
+                  rsi_len: int = 14, 
+                  kd_k: int = 9, kd_d: int = 3,
+                  macd_fast: int = 12, macd_slow: int = 26, macd_signal: int = 9) -> pd.DataFrame:
         """
         Calculates technical indicators: MA, MACD, RSI, KD.
         Appends columns to the input DataFrame.
@@ -15,29 +19,41 @@ class TechIndicators:
         if 'Close' not in df.columns:
             raise ValueError("DataFrame must contain 'Close' column")
 
-        # 1. Moving Averages (SMA 10, 20)
-        df['MA10'] = ta.sma(df['Close'], length=10)
-        df['MA20'] = ta.sma(df['Close'], length=20)
-        df['MA60'] = ta.sma(df['Close'], length=60) # Added MA60 for reference
+        # 1. Moving Averages
+        df['MA_SHORT'] = ta.sma(df['Close'], length=ma_short) 
+        df['MA_LONG'] = ta.sma(df['Close'], length=ma_long)  
+        df['MA60'] = ta.sma(df['Close'], length=60) 
 
-        # 2. MACD (Fast=12, Slow=26, Signal=9)
-        macd = ta.macd(df['Close'], fast=12, slow=26, signal=9)
+        # 2. MACD
+        macd = ta.macd(df['Close'], fast=macd_fast, slow=macd_slow, signal=macd_signal)
         if macd is not None:
-            # pandas_ta returns columns like MACD_12_26_9, MACDh_12_26_9, MACDs_12_26_9
-            # We standardize them for easier access
-            df['MACD_DIF'] = macd['MACD_12_26_9']  # Fast - Slow
-            df['MACD_DEM'] = macd['MACDs_12_26_9'] # Signal line
-            df['MACD_OSC'] = macd['MACDh_12_26_9'] # Histogram
+            # pandas_ta columns: MACD_{fast}_{slow}_{signal}
+            # We need to construct dynamic column names
+            col_main = f'MACD_{macd_fast}_{macd_slow}_{macd_signal}'
+            col_signal = f'MACDs_{macd_fast}_{macd_slow}_{macd_signal}'
+            col_hist = f'MACDh_{macd_fast}_{macd_slow}_{macd_signal}'
 
-        # 3. RSI (14)
-        df['RSI'] = ta.rsi(df['Close'], length=14)
+            # Check if columns exist (pandas_ta creates them)
+            if col_main in macd.columns:
+                df['MACD_DIF'] = macd[col_main]
+                df['MACD_DEM'] = macd[col_signal]
+                df['MACD_OSC'] = macd[col_hist]
+
+        # 3. RSI
+        df['RSI'] = ta.rsi(df['Close'], length=rsi_len)
 
         # 4. KD (Stochastic Oscillator)
-        # pandas_ta uses stoch(high, low, close) -> STOCHk, STOCHd
-        stoch = ta.stoch(df['High'], df['Low'], df['Close'], k=9, d=3)
+        stoch = ta.stoch(df['High'], df['Low'], df['Close'], k=kd_k, d=kd_d)
         if stoch is not None:
-            df['K'] = stoch['STOCHk_9_3_3']
-            df['D'] = stoch['STOCHd_9_3_3']
+             # pandas_ta columns: STOCHk_{k}_{d}_{3}, STOCHd_{k}_{d}_{3} (Wait, stoch default smooth_k=3)
+             # Let's handle the default column naming or use iloc if needed, but names are safer.
+             # Default STOCH function in pandas_ta: k=14, d=3, smooth_k=3. 
+             # We passed k=kd_k, d=kd_d. 
+             # Assumption: smooth_k is 3 by default in pandas_ta stoch unless specified.
+             # Let's check keys if needed, but for now we try to construct them.
+             # Actually, simpler is to just take the first and second columns if we are sure.
+             df['K'] = stoch.iloc[:, 0]
+             df['D'] = stoch.iloc[:, 1]
 
         return df
 

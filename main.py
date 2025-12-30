@@ -9,7 +9,16 @@ def main():
     
     # 1. Run Market Scan
     print("\n[Step 1] Scanning Market...")
-    scanner = MarketScanner() # Default top weighted stocks
+    
+    # Initialize SheetManager first to get Config
+    sheet_manager = SheetManager()
+    stock_list = sheet_manager.fetch_stock_list()
+    config = sheet_manager.fetch_strategy_config()
+    
+    if not stock_list:
+        print("⚠️ Warning: Stock list is empty. Check Google Sheet 'Stock List'.")
+    
+    scanner = MarketScanner(stock_list=stock_list, config=config)
     df = scanner.run_scan()
     
     if df.empty:
@@ -18,7 +27,7 @@ def main():
 
     # 2. Update Google Sheets
     print("\n[Step 2] Updating Google Sheets...")
-    sheet_manager = SheetManager()
+    # sheet_manager already initialized above
     sheet_manager.update_daily_report(df)
     
     # 3. Send Line Notification

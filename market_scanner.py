@@ -4,13 +4,14 @@ from data_fetcher import DataFetcher
 from strategy_analyzer import StrategyAnalyzer
 
 class MarketScanner:
-    def __init__(self, stock_list: list = None):
+    def __init__(self, stock_list: list = None, config: dict = {}):
         if stock_list is None:
             # Default list (Top weighted stocks in TWSE)
             self.stock_list = ["2330", "2317", "2454", "2308", "2303"] 
         else:
             self.stock_list = stock_list
             
+        self.config = config
         self.fetcher = DataFetcher()
 
     def run_scan(self) -> pd.DataFrame:
@@ -24,19 +25,21 @@ class MarketScanner:
         for code in self.stock_list:
             # 1. Fetch Data
             df = self.fetcher.fetch_daily_k(code)
+            stock_name = self.fetcher.get_stock_name(code)
             
             if df is None or df.empty:
                 print(f"⚠️ No data for {code}")
                 continue
                 
             # 2. Analyze Strategy
-            df = StrategyAnalyzer.analyze(df)
+            df = StrategyAnalyzer.analyze(df, config=self.config)
             
             # 3. Get Latest Signal (Today)
             latest = df.iloc[-1]
             
             results.append({
                 "Stock": code,
+                "Name": stock_name,
                 "Date": latest.name.strftime("%Y-%m-%d"),
                 "Close": latest['Close'],
                 "Signal": latest['Signal'],

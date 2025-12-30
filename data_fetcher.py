@@ -54,9 +54,20 @@ class DataFetcher:
             
             return df_daily
             
+            
         except Exception as e:
             print(f"❌ Failed to fetch {stock_code}: {e}")
             return None
+
+    def get_stock_name(self, stock_code: str) -> str:
+        """
+        Get stock name from contract.
+        """
+        try:
+            contract = self.api.Contracts.Stocks[stock_code]
+            return contract.name
+        except Exception:
+            return stock_code # Fallback to code if name not found
 
 if __name__ == "__main__":
     # Test run

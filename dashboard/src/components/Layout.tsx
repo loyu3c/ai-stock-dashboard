@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 import DashboardHome from './DashboardHome';
+import ConfigPage from './ConfigPage';
 
 const Layout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -16,7 +17,7 @@ const Layout = () => {
             case 'backtest':
                 return <div className="p-8 text-center text-gray-500">🚧 回測分析頁面開發中...</div>;
             case 'settings':
-                return <div className="p-8 text-center text-gray-500">🚧 系統設定頁面開發中...</div>;
+                return <ConfigPage />;
             default:
                 return <DashboardHome />;
         }

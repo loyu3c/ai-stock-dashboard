@@ -60,3 +60,4 @@
     - [x] **筛选器**: (已透過分類統計卡片與排序列表呈現)
     - [x] **導航佈局 (Layout)**: 實作左側功能選單 (Sidebar)
     - [x] **介面優化 (UI Polish)**: 改用明亮色系 (Bright Theme) 設計
+    - [x] **行動版優化 (Mobile)**: 側邊欄改為漢堡選單 (Hamburger Menu)，修復跑版問題

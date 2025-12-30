@@ -1,5 +1,6 @@
 export interface StockData {
     Stock: string;
+    Name: string;
     Date: string;
     Close: number;
     Signal: '🟢' | '🔴' | '🟡';

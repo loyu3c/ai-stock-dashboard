@@ -27,6 +27,7 @@ const StockTable: React.FC<StockTableProps> = ({ data, loading }) => {
                         <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                             <tr>
                                 <th className="px-6 py-4 font-semibold">代號</th>
+                                <th className="px-6 py-4 font-semibold">名稱</th>
                                 <th className="px-6 py-4 font-semibold">日期</th>
                                 <th className="px-6 py-4 font-semibold">信號</th>
                                 <th className="px-6 py-4 font-semibold">收盤價</th>
@@ -42,6 +43,9 @@ const StockTable: React.FC<StockTableProps> = ({ data, loading }) => {
                                 >
                                     <td className="px-6 py-4 font-bold text-slate-700 whitespace-nowrap">
                                         {stock.Stock}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600 font-medium">
+                                        {stock.Name}
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">{stock.Date}</td>
                                     <td className="px-6 py-4 text-xl">{stock.Signal}</td>
