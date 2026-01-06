@@ -1,4 +1,4 @@
-from sheet_manager import SheetManager
+from db_manager import DBManager
 import pandas as pd
 
 # 0050 Constituents (Fetched from WantGoo)
@@ -57,41 +57,35 @@ new_stocks = [
 ]
 
 def add_0050():
-    sm = SheetManager()
+    db = DBManager()
     
-    # 1. Fetch existing
-    try:
-        ws = sm.sh.worksheet("Stock List")
-        existing_records = ws.get_all_records()
-    except Exception as e:
-        print(f"Error reading sheet: {e}")
-        existing_records = []
-
-    # Map existing codes to avoid duplicates
-    existing_codes = {str(r['Stock']) for r in existing_records}
+    # 1. Clear existing stocks
+    print("🗑️ Clearing all existing stocks...")
+    import sqlite3
+    import os
     
-    added_count = 0
-    final_list = list(existing_records) # Start with existing
+    # Use DBManager's path logic if possible, but it's simple enough
+    db_path = os.path.join("data", "stock_data.db")
+    with sqlite3.connect(db_path) as conn:
+        c = conn.cursor()
+        c.execute("DELETE FROM stocks")
+        conn.commit()
+    print("✅ Stock list cleared.")
 
+    # 2. Prepare new list
+    final_list = []
     for stock in new_stocks:
-        code = str(stock['code'])
-        if code not in existing_codes:
-            final_list.append({
-                "Stock": code,
-                "Name": stock['name'],
-                "Enabled": "TRUE",
-                "Memo": "0050成分股"
-            })
-            existing_codes.add(code)
-            added_count += 1
+        final_list.append({
+            "Stock": str(stock['code']),
+            "Name": stock['name'],
+            "Enabled": "TRUE",
+            "Memo": "0050成分股"
+        })
             
-    # 2. Save back
-    if added_count > 0:
-        print(f"Adding {added_count} new stocks from 0050 list...")
-        sm.save_stock_list(final_list)
-        print("✅ Successfully updated stock list.")
-    else:
-        print("ℹ️ All 0050 stocks are already in the list.")
+    # 3. Save back
+    print(f"Adding {len(final_list)} new stocks from 0050 list...")
+    db.save_stock_list(final_list)
+    print("✅ Successfully updated stock list in SQLite.")
 
 if __name__ == "__main__":
     add_0050()

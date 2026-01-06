@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-stock-backend:latest
+    container_name: ai_stock_backend
+    restart: unless-stopped
+    command: python server.py
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Taipei
+      - SHIOAJI_API_KEY=${SHIOAJI_API_KEY}
+      - SHIOAJI_SECRET_KEY=${SHIOAJI_SECRET_KEY}
+      - SHIOAJI_PFX_PATH=${SHIOAJI_PFX_PATH}
+      - SHIOAJI_PFX_PASSWORD=${SHIOAJI_PFX_PASSWORD}
+      - GOOGLE_SERVICE_ACCOUNT_FILE=${GOOGLE_SERVICE_ACCOUNT_FILE}
+      - GOOGLE_SHEET_URL=${GOOGLE_SHEET_URL}
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      - LINE_USER_ID=${LINE_USER_ID}
+    env_file:
+      - .env
+    expose:
+      - "8000"
+    # Map port locally for debugging if needed, but frontend talks via internal network
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./dashboard
+      dockerfile: frontend.Dockerfile
+    image: ai-stock-frontend:latest
+    container_name: ai_stock_frontend
+    restart: unless-stopped
+    ports:
+      - "5678:80" # NAS Web Port (Change if occupied)
+    depends_on:
+      - backend

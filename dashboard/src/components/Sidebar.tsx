@@ -1,4 +1,4 @@
-import { LayoutDashboard, TrendingUp, Settings, LineChart } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Settings, LineChart, FlaskConical, Wallet } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface MenuItem {
@@ -9,8 +9,10 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
     { icon: LayoutDashboard, label: '總覽看板', id: 'dashboard' },
+    { icon: Wallet, label: '資產與交易', id: 'transactions' },
     { icon: TrendingUp, label: '市場掃描 (Scanner)', id: 'scanner' },
-    { icon: LineChart, label: '回測分析 (Backtest)', id: 'backtest' },
+    { icon: LineChart, label: '回測分析 (單股)', id: 'backtest' },
+    { icon: FlaskConical, label: '策略優化 (多股)', id: 'batch_optimizer' },
     { icon: Settings, label: '系統設定', id: 'settings' },
 ];
 

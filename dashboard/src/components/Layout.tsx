@@ -3,6 +3,10 @@ import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 import DashboardHome from './DashboardHome';
 import ConfigPage from './ConfigPage';
+import TransactionPage from './TransactionPage';
+import ScannerPage from './ScannerPage';
+import BacktestPage from './BacktestPage';
+import BatchOptimizerPage from './BatchOptimizerPage';
 
 const Layout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -12,10 +16,14 @@ const Layout = () => {
         switch (activeTab) {
             case 'dashboard':
                 return <DashboardHome />;
+            case 'transactions':
+                return <TransactionPage />;
             case 'scanner':
-                return <div className="p-8 text-center text-gray-500">🚧 市場掃描頁面開發中...</div>;
+                return <ScannerPage />;
             case 'backtest':
-                return <div className="p-8 text-center text-gray-500">🚧 回測分析頁面開發中...</div>;
+                return <BacktestPage />;
+            case 'batch_optimizer':
+                return <BatchOptimizerPage />;
             case 'settings':
                 return <ConfigPage />;
             default:

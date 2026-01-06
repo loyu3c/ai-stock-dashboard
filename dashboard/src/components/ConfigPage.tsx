@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Save, Plus, Trash2, RefreshCw, ArrowUpDown } from 'lucide-react'; // Add ArrowUpDown
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 
 interface StockItem {
@@ -19,7 +19,7 @@ interface StrategyConfig {
     [key: string]: number | string; // For saving payload, we keep this structure or transform
 }
 
-const API_BASE = 'http://localhost:8000/api';
+import { api } from '../services/api';
 
 const ConfigPage = () => {
     const [loading, setLoading] = useState(true);
@@ -28,6 +28,49 @@ const ConfigPage = () => {
     const [activeSection, setActiveSection] = useState<'stocks' | 'strategy'>('stocks');
     const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
+    // Sort State
+    const [sortConfig, setSortConfig] = useState<{ key: keyof StockItem | null; direction: 'asc' | 'desc' }>({
+        key: null,
+        direction: 'asc',
+    });
+
+    const handleSort = (key: keyof StockItem) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+
+        // Mutate stockList directly so editing logic (based on index) stays valid
+        const sortedList = [...stockList].sort((a, b) => {
+            // Handle boolean/string mix for Enabled
+            let valA = a[key];
+            let valB = b[key];
+
+            if (key === 'Enabled') {
+                valA = valA === true || valA === "TRUE" ? 1 : 0;
+                valB = valB === true || valB === "TRUE" ? 1 : 0;
+            }
+
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        setStockList(sortedList);
+    };
+
+    const renderSortHeader = (label: string, key: keyof StockItem) => (
+        <th
+            className="px-6 py-3 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+            onClick={() => handleSort(key)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                <ArrowUpDown size={14} className="text-slate-400" />
+            </div>
+        </th>
+    );
+
     useEffect(() => {
         fetchConfig();
     }, []);
@@ -35,9 +78,7 @@ const ConfigPage = () => {
     const fetchConfig = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/config`);
-            if (!res.ok) throw new Error("Failed to connect to local server");
-            const data = await res.json();
+            const data = await api.fetchStockList();
             setStockList(data.stock_list);
 
             // Handle both Array (new backend) and Object (old backend) formats
@@ -62,22 +103,12 @@ const ConfigPage = () => {
 
     const handleSaveStocks = async () => {
         try {
-            // Ensure Enabled is string "TRUE"/"FALSE" for consistency with Python backend expectation if needed
-            // Or backend handles it. Python expectation: Pydantic 'Enabled: str'.
-            // Let's convert boolean to "TRUE"/"FALSE" just in case or keep consistency using what we got.
-            // The sheet has "TRUE".
-
             const payload = stockList.map(s => ({
                 ...s,
                 Enabled: s.Enabled === true || s.Enabled === "TRUE" ? "TRUE" : "FALSE"
             }));
 
-            const res = await fetch(`${API_BASE}/save_stock_list`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) throw new Error("Save failed");
+            await api.saveStockList(payload);
             setMessage({ text: "自選股清單已儲存！", type: 'success' });
         } catch (err) {
             setMessage({ text: "儲存失敗", type: 'error' });
@@ -92,12 +123,7 @@ const ConfigPage = () => {
                 configDict[item.Parameter] = item.Value;
             });
 
-            const res = await fetch(`${API_BASE}/save_strategy`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ config: configDict })
-            });
-            if (!res.ok) throw new Error("Save failed");
+            await api.saveStrategy(configDict);
             setMessage({ text: "策略參數已儲存！", type: 'success' });
         } catch (err) {
             setMessage({ text: "儲存失敗", type: 'error' });
@@ -165,10 +191,10 @@ const ConfigPage = () => {
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                                     <tr>
-                                        <th className="px-6 py-3">啟用</th>
-                                        <th className="px-6 py-3">代號</th>
-                                        <th className="px-6 py-3">名稱</th>
-                                        <th className="px-6 py-3">備註</th>
+                                        {renderSortHeader("啟用", "Enabled")}
+                                        {renderSortHeader("代號", "Stock")}
+                                        {renderSortHeader("名稱", "Name")}
+                                        {renderSortHeader("備註", "Memo")}
                                         <th className="px-6 py-3">操作</th>
                                     </tr>
                                 </thead>

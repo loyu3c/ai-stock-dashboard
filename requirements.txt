@@ -5,3 +5,7 @@ gspread
 google-auth
 line-bot-sdk
 python-dotenv
+fastapi
+uvicorn
+tabulate
+

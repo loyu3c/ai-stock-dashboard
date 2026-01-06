@@ -1,6 +1,6 @@
 from datetime import datetime
 from market_scanner import MarketScanner
-from supabase_manager import SupabaseManager
+from db_manager import DBManager
 from line_notifier import LineNotifier
 
 def main():
@@ -9,13 +9,13 @@ def main():
     # 1. Run Market Scan
     print("\n[Step 1] Scanning Market...")
     
-    # Initialize SupabaseManager
-    supabase_manager = SupabaseManager()
-    stock_list = supabase_manager.fetch_stock_list()
-    config = supabase_manager.fetch_strategy_config()
+    # Initialize DBManager
+    db_manager = DBManager()
+    stock_list = db_manager.fetch_stock_list()
+    config = db_manager.fetch_strategy_config()
     
     if not stock_list:
-        print("⚠️ Warning: Stock list is empty. Check Supabase 'stocks' table.")
+        print("⚠️ Warning: Stock list is empty. Check DB 'stocks' table (or use Settings page).")
     
     scanner = MarketScanner(stock_list=stock_list, config=config)
     df = scanner.run_scan()
@@ -25,8 +25,8 @@ def main():
         return
 
     # 2. Update Database
-    print("\n[Step 2] Updating Supabase...")
-    supabase_manager.save_analysis_result(df)
+    print("\n[Step 2] Updating Database (SQLite)...")
+    db_manager.save_analysis_result(df)
     
     # 3. Send Line Notification
     print("\n[Step 3] Sending Line Notification...")
@@ -34,20 +34,26 @@ def main():
     
     # Construct Message
     today = datetime.now().strftime("%Y-%m-%d")
-    green_stocks = df[df['Signal'] == '🟢']['Stock'].tolist()
-    red_stocks = df[df['Signal'] == '🔴']['Stock'].tolist()
     
-    msg = f"📊 AI選股日報 ({today})\n\n"
+    msg = f"\n📊 AI選股日報 ({today})\n"
     
-    if green_stocks:
-        msg += f"🟢 綠燈 (買進關注): {', '.join(green_stocks)}\n"
+    # Green Light
+    green_df = df[df['Signal'] == '🟢']
+    if not green_df.empty:
+        msg += "\n🟢 綠燈 (買進關注):\n"
+        for _, row in green_df.iterrows():
+            msg += f"{row['Name']}({row['Stock']}) - {row['Close']}\n"
     else:
-        msg += "🟢 綠燈: 無\n"
+        msg += "\n🟢 綠燈: 無\n"
         
-    if red_stocks:
-        msg += f"🔴 紅燈 (留意賣點): {', '.join(red_stocks)}\n"
-        
-    msg += f"\n🟡 其餘 {len(df) - len(green_stocks) - len(red_stocks)} 檔為黃燈觀望。\n"
+    # Red Light
+    red_df = df[df['Signal'] == '🔴']
+    if not red_df.empty:
+        msg += "\n🔴 紅燈 (留意賣點):\n"
+        for _, row in red_df.iterrows():
+            msg += f"{row['Name']}({row['Stock']}) - {row['Close']}\n"
+
+    msg += f"\n🟡 其餘 {len(df) - len(green_df) - len(red_df)} 檔為黃燈觀望。\n"
     msg += "\n📈 完整報表已更新至 Dashboard / 資料庫。"
     
     notifier.send_message(msg)
