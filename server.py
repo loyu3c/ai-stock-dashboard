@@ -115,6 +115,38 @@ def update_stock_memo_endpoint(data: MemoUpdate):
 # --- Market Scanner Endpoints ---
 
 from market_scanner import MarketScanner
+import json
+import os
+from datetime import datetime
+
+SCAN_RESULTS_FILE = "data/scanner_last_result.json"
+
+def load_scan_result():
+    if os.path.exists(SCAN_RESULTS_FILE):
+        try:
+            with open(SCAN_RESULTS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return None
+    return None
+
+def save_scan_result(data):
+    try:
+        # Ensure data dir exists
+        os.makedirs("data", exist_ok=True)
+        
+        payload = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "data": data
+        }
+        with open(SCAN_RESULTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Failed to save scan result: {e}")
+
+@app.get("/api/scan_market/last")
+def get_last_scan_result():
+    return load_scan_result() or {}
 
 class ScanRequest(BaseModel):
     type: str = "volume_rank"
@@ -141,7 +173,12 @@ async def scan_market(req: ScanRequest):
         # 3. Return Results
         # Handle NaN values for JSON output
         df = df.fillna("")
-        return df.to_dict(orient='records')
+        results = df.to_dict(orient='records')
+        
+        # Save results
+        save_scan_result(results)
+        
+        return results
         
     except Exception as e:
         print(f"❌ Scan error: {e}")

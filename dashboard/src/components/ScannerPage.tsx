@@ -13,6 +13,7 @@ interface ScanResult {
     K: number;
     D: number;
     RSI: number;
+    Volume: number;
 }
 
 export default function ScannerPage() {
@@ -21,6 +22,7 @@ export default function ScannerPage() {
     const [scanLimit, setScanLimit] = useState(20);
     const [addedStocks, setAddedStocks] = useState<Set<string>>(new Set());
     const [accountStatus, setAccountStatus] = useState<any>(null);
+    const [lastScanTime, setLastScanTime] = useState<string | null>(null);
 
     // Trade Dialog State
     const [selectedStock, setSelectedStock] = useState<ScanResult | null>(null);
@@ -29,6 +31,14 @@ export default function ScannerPage() {
     useEffect(() => {
         // Fetch account status for balance check
         api.fetchAccountStatus().then(setAccountStatus).catch(console.error);
+
+        // Fetch last scan result
+        api.fetchLastScanResult().then(data => {
+            if (data && data.data) {
+                setResults(data.data);
+                setLastScanTime(data.timestamp);
+            }
+        }).catch(err => console.log("No previous scan result found or error:", err));
     }, []);
 
     // Sort State
@@ -71,6 +81,15 @@ export default function ScannerPage() {
         try {
             const data = await api.scanMarket('volume_rank', scanLimit);
             setResults(data);
+            // Update time locally
+            const now = new Date();
+            const timeStr = now.getFullYear() + "-" +
+                String(now.getMonth() + 1).padStart(2, '0') + "-" +
+                String(now.getDate()).padStart(2, '0') + " " +
+                String(now.getHours()).padStart(2, '0') + ":" +
+                String(now.getMinutes()).padStart(2, '0') + ":" +
+                String(now.getSeconds()).padStart(2, '0');
+            setLastScanTime(timeStr);
         } catch (error) {
             console.error(error);
             alert("掃描失敗，請確認後端 Server 是否執行中");
@@ -112,6 +131,11 @@ export default function ScannerPage() {
             <h1 className="text-3xl font-extrabold mb-8 text-slate-800 tracking-tight flex items-center gap-3">
                 <Search className="w-8 h-8 text-blue-600" />
                 市場掃描 (Scanner)
+                {lastScanTime && (
+                    <span className="text-sm font-normal text-slate-500 ml-auto bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                        🕒 上次掃描: {lastScanTime}
+                    </span>
+                )}
             </h1>
 
             <Card className="shadow-lg border-0 bg-white/50 backdrop-blur-sm">
@@ -163,6 +187,7 @@ export default function ScannerPage() {
                                         {renderSortHeader("代號", "Stock")}
                                         {renderSortHeader("名稱", "Name")}
                                         {renderSortHeader("收盤", "Close")}
+                                        {renderSortHeader("成交量", "Volume")}
                                         {renderSortHeader("訊號", "Signal")}
                                         <th className="px-4 py-3 text-center">操作</th>
                                     </tr>
@@ -175,6 +200,7 @@ export default function ScannerPage() {
                                                 <td className="px-4 py-3 font-medium text-slate-700">{stock.Stock}</td>
                                                 <td className="px-4 py-3">{stock.Name}</td>
                                                 <td className="px-4 py-3 font-mono">{stock.Close}</td>
+                                                <td className="px-4 py-3 font-mono text-slate-600">{(stock.Volume || 0).toLocaleString()}</td>
                                                 <td className="px-4 py-3 text-lg">{stock.Signal}</td>
                                                 <td className="px-4 py-3 text-center">
                                                     <div className="flex justify-center gap-2">

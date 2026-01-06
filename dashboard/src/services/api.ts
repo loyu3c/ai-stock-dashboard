@@ -56,6 +56,12 @@ export const api = {
         return res.json();
     },
 
+    async fetchLastScanResult() {
+        const res = await fetch(`${API_BASE_URL}/scan_market/last`);
+        if (!res.ok) throw new Error("Failed to fetch last scan result");
+        return res.json();
+    },
+
     // Backtest
     async runBacktest(params: any) {
         const res = await fetch(`${API_BASE_URL}/run_backtest`, {

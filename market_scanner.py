@@ -136,7 +136,8 @@ class MarketScanner:
                     "Memo": latest.get('Signal_Memo', ''),
                     "K": round(latest.get('K', 0), 2),
                     "D": round(latest.get('D', 0), 2),
-                    "RSI": round(latest.get('RSI', 0), 2)
+                    "RSI": round(latest.get('RSI', 0), 2),
+                    "Volume": int(latest.get('Volume', 0))
                 })
             except Exception as e:
                 print(f"❌ Error processing result for {code}: {e}")
